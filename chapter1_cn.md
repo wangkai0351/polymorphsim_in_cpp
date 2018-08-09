@@ -17,9 +17,9 @@
 
 > Object：一个含义广泛的术语，用以描述软件系统中可供辨别的组件（components），如今常被用来描述一个具有某种自我包容（self-contained）意识并有着可识别界限的元件。在面向对象设计中
 
-上述定义确实学术了一些！如果你没有看懂，其实只要建立这样的一个概念就好：object就是“东西”。东西必须占用一定的空间，在电脑中也就是占用一定的存储空间，所以我们又叫它为一个实体（instance）。
+上述定义确实学术了一些！如果你没有看懂，其实只要建立这样的一个概念就好：object就是“东西”。东西必须占用一定的空间，在计算机中也就是占用一定的存储空间，所以我们又叫它为一个实体（instance）。
 
-上述定义有相当部分在描述“东西”的起源。它说“东西是根据一个模板产生出来的”，这个“模板”其实就是“东西的属性描述”，也就是所谓的class（上述定义使用了template一词，容易引起混淆，因为“template”在C++语言中另有所指，见本章末的template一节）。东西的属性（class）由“数据（成员）”和“用以处理该数据的程序（在电脑世界里就是函数）”两者组成。
+上述定义有相当部分在描述“东西”的起源。它说“东西是根据一个模板产生出来的”，这个“模板”其实就是“东西的属性描述”，也就是所谓的class（上述定义使用了template一词，容易引起混淆，因为“template”在C++语言中另有所指，见本章末的template一节）。东西的属性（class）由“数据（成员）”和“用以处理该数据的程序（在计算机世界里就是函数）”两者组成。
 
 现在我们再看看牛津电脑字典对于class这个词条的解释：
 
@@ -739,3 +739,264 @@ r++;  // 请注意：sizeof(r) == sizeof(x)
 
 Reference虽然本质上是个指针，在形式上却是个object。也就是因为其形式漂亮而本质实用（用于call by reference，或称call by address），所以reference常被用于函数的参数列表（arguments list）和返回值（return value）。下面是个例子：
 
+```c++
+#0001 int* func1(int* x)
+#0002 {
+#0003 	(*x)++;
+#0004 	return x;
+#0005 }
+#0006
+#0007 int& func2(int& x)
+#0008 {
+#0009 	x++;
+#0010 	return x;
+#0011 }
+#0012
+#0013 main()
+#0014 {
+#0015 	int a = 0;
+#0016
+#0017 	// ugly but explicit，你可以清楚看到传给 func1() 的是个指针。
+#0018 	// 返回值的形式也很“难看”。
+#0019 	cout << *func1(&a) << endl; // output: 1
+#0020
+#0021 	// clean but hidden。传给 func2() 的其实是个指针（借助 reference），
+#0022 	// 但你看不出来。返回的也是指针（借助 reference），你也看不出来。
+#0023 	cout << func2(a) << endl; // output: 2
+#0024 }
+```
+
+Reference对于copy constructor的设计十分重要，我将在稍后介绍copy constructor。至于为什么copy constructor需要reference，其底层机制请参考***Thinking in C++***（Bruce Eckel / Prentice Hall）一书第9章：Pointers & references。
+
+## Constructors & Destructors
+
+### 构造函数和析构函数
+
+当object诞生，有一个名为constructor的函数会自动地执行。当object毁灭，有一个特殊的称为destructor的程序会自动执行。Constructor可以不只一个，但destructor只能有一个。
+
+Constructor就是与class同名的那些member functions，例如 *CPoint::CPoint()* 或  *CDemo::CDemo()* 。constructor不能够指定返回值的类型，也就是说它不必（但可以）return。你可以拥有一个以上的constructors，各有不同个数以及不同类型的参数（s）。
+
+destructor（析构函数）就是与class同名并且前面加上“~”符号的那个member function，例如*CPoint::~CPoint()* 或 *CDemo::~CDemo()*。destructor不能够指定返回值类型，也就是说它不必（但可以）return。每一个class只能拥有一个destructor，并且不能有任何参数。
+
+由于global object的诞生比程序进入点更早，所以global object的constructor执行时机更早于程序的进入点。这一点你一定已经在p.21“object的生命”一节实例中注意到了。
+
+### Default Constructors
+
+所谓default constructors就是在没有指定任何参数的constructor。如果我们的class *CA* 声明如下：
+
+```c++
+class CA {
+public:
+	int getdata() { return _data; };
+	CA() { _data = 5; }; // default constructor
+	CA(int val) { _data = val; }; // constructor
+protected:
+	int _data;
+};
+```
+
+*CA* 拥有两个constructors，分别是 *CA(int)* 和 *CA()* 。后者没有参数，正是所谓的default constructor。当我产生一个 *CA* object而没有指定任何参数：
+
+```c++
+CA aCA;
+CA* pCA = new CA;
+```
+
+编译器就为我调用default constructor。
+
+普遍存在于C++程序员之间的一个误解是：如果我们没有为某个class设计constructor，编译器就会自动为该class制造出一个default constructor来。这个说法对也不对，这里我先提示一个结论（稍后会有更多细节探讨）：
+
+------
+
+如果一个class没有任何user-defined constructor，那么编译器可能会为次classes自动做出一个default constructor。这一由编译器合成出来的default constructor只负责完成编译器所需的动作，无法照顾user（programmer）的可能需求。
+
+------
+
+什么是“编译器所需”的动作？就是隐藏在C++程序代码语句后面，让C++诸多特性得以实现的动作。包括以下三种情况：
+
+1. class *CA* 内含class *CZ* objects
+
+   当你产生一个*CA* object，隐藏在底层的必要操作是先将*CZ* objects初始化（因为*CA* object之中有一个*CZ* object）。
+
+2. lass *CA* 继承自class *CZ*
+
+   当你产生一个*CA* object，隐藏在底层的必要操作是，调用 *CZ* 的default constructor（因为*CA* object之中有一个*CZ* subobject）。
+
+3. *CA* 是一个polymorphic class，也就是说它拥有virtual functions，或者继承自拥有virtual functions的class（es）（关于virtual，稍后有一节说明）。
+
+   当你产生一个*CA* object，隐藏在底层的必要操作是：将虚拟机制所需的vptr和vtbr初始化（第2章对详细的介绍）。
+
+由于这三种情况皆有所谓“底层的必要操作”，所以编译器必须自动为class *CA* 合成一个default constructor（如果没有任何user-defined constructor的话），或暗中对已有的user-defined constructor动手脚（添加一些代码）。合成出来的东西称为 implicit **nontrivial** default constructor（这是C++ Standard的用语）。
+
+如果没有上述需求，编译器就不会为class产生一个default constructor。例如：
+
+```c++
+class CB {
+public:
+	int getdata() { return _data; };
+	protected:
+	int _data;
+};
+```
+
+*CB* 没有符合虚拟机制（它没有virtual functions，也不是继承自拥有virtual functions的base classes），也没有内含embedded objects，也没有继承自其他class，所以编译器不会为它合成一个default constructor出来。于是当我这么做：
+
+```c++
+CB aCB;  // 应该调用 default constructor
+cout << "aCB.getdata()=" << aCB.getdata() << endl;
+```
+
+得到的结果是：
+
+```c++
+aCB.getdata()=4211382 // 莫名其妙的初值
+```
+
+这恐怕不是我所期望的。我期望的*_data*有个初值（最起码也该为0吧），但这是程序员的需求，不是编译器的需求，所以我必须自求多福，明白地设计一个default constructor：
+
+```c++
+class CB {
+public:
+	int getdata() { return _data; };
+	CB() { _data = 5; }; // default constructor
+protected:
+	int _data;
+};
+```
+
+现在再执行以下操作，就符合我们对初值的期望了：
+
+```c++
+CB aCB;  // 应该调用 default constructor
+cout << "aCB.getdata()=" << aCB.getdata() << endl;
+// 输出结果：aCB.getdata()=5
+```
+
+注意，如果class如果有了任何constructor但非default constructor，编译器绝不会为它合成一个default constructor。如果class *CZ* 正是如此一个class，那么当你想要生成一个*CZ* object并且没有指定参数时：
+
+```c++
+CZ *aCZ; // error
+```
+
+编译器会发出抱怨的声音：
+
+error C2512: 'CZ' : no appropriate default constructor available
+
+> 注意：本小节对于default constructor的合成条件，只是一个概略性的介绍。*Inside the C++ Object Model* （Lippman/Addison Wesley/1996）第2章对此有非常详细的描述与归纳。
+
+### Copy Constructors
+
+所谓copy constructors，是指那种“众多参数之中，有一个参数的类型是其class type”的constructor。例如：
+
+```c++
+#0001 class CA {
+#0002 public:
+#0003 	int getdata() { return _data; };
+#0004 	CA() { _data = 5; }; // default constructor
+#0005 	CA(int val) { _data = val; }; // constructor
+#0006 	CA(const CA& ca) { // copy constructor
+#0007 		cout << "copy constructor" << endl;
+#0008 		_data = 10;
+#0009 	};
+#0010 protected:
+#0011 	int _data;
+#0012 };
+```
+
+以下两种情况，会调用copy constructor：
+
+- 情况1：将一个object当作参数传给某一个函数。
+- 情况2：将一个object当作函数返回值。
+
+例如（沿用上面的class *CA*）：
+
+```c++
+#0001 void foo2(CA aCA) // 情況 2（函数参数是个 object）
+#0002 {
+#0003 	cout << "in foo2(), aCA.getdata()=" << aCA.getdata() << endl;
+#0004 }
+#0005
+#0006 CA foo3()
+#0007 {
+#0008 	CA aCA(3);
+#0009 	cout << "in foo3(), aCA.getdata()=" << aCA.getdata() << endl;
+#0010 	return aCA; // 情況 3（函数返回值是个 object）
+#0011 }
+#0012
+#0013 void main()
+#0014 {
+#0015 	CA aCA1, aCA2(7);
+#0016 	cout << "aCA1.getdata()=" << aCA1.getdata() << endl;
+#0017 	cout << "aCA2.getdata()=" << aCA2.getdata() << endl;
+#0018
+#0019 	aCA2 = aCA1; // object assignment
+#0020 	cout << "aCA2.getdata()=" << aCA2.getdata() << endl;
+#0021
+#0022 	foo2(aCA1); // 情況 1（调用之前，aCA1._data 为 5）
+#0023 	aCA2 = foo3(); // 情況 2
+#0024 	cout << "aCA2.getdata()=" << aCA2.getdata() << endl;
+#0025 }
+```
+
+让我们看看运行结果：
+
+```c++
+aCA1.getdata()=5
+aCA2.getdata()=7
+aCA2.getdata()=5 // 经过 object assignment 之后
+copy constructor
+in foo2(), aCA.getdata()=10 // 经过情况1之后
+in foo3(), aCA.getdata()=3
+copy constructor
+aCA2.getdata()=10 // 经过情况2之后
+```
+
+这里还有几点值得注意的地方：
+
+- L19将一个object赋值（assign）给另一个object，这也是一种复制，但它调用的是所谓的 copy assignment operator。本例并没有特别设计 copy assignment operator。
+- 调用 *foo2()* 之前，*_data* 为5，进入 *foo2()* 之后在打印，已变成10，可见 copy constructor的确在 *foo2()*的参数复制时（情况1）发生。
+-  *foo3()* 内有一个 local object，其*_data* 为3，当把它作为返回值传出，却变成了10，可见 copy constructor的确在 *foo3()*的返回值复制时（情况2）发生。
+
+当然，上述class *CA* 的copy constructor设计内容是非常失败的，故弄玄虚，简直是搬起石头砸自己的脚。为的是彰显copy constructor的发生。
+
+许多人对于 copy constructor有着和对default constructor一样的误解，以为如果没有user-defined copy constructor，编译器会自动为我们生成一个。事实上，编译器只有在**必要的时候**，才会这么做。
+
+什么是**必要的时候**呢？就是当class不再展现“bitwise copy”意义的时候。
+
+### bitwise copy — 逐位拷贝
+
+所谓“bitwise copy”，是指“一个位一个位”地完整拷贝。一般的objects拷贝当然是如此，例如本节的  class *CA*
+
+
+
+Copy constructor 的实现与 class reference（&）有密切关联，关系到函数的调用和返回、中断发生的需求及可重入 （re-entrant）等细节。请参考***Inside The C++ Object Model***（Lippman/Addison Wesley/1996）一书第9章：Pointers & references。
+
+> 注意，本小节对于copy constructor的合成条件，只是粗略地介绍。***Inside The C++ Object Model***（Lippman/Addison Wesley/1996）一书第2章对此有非常详细的描述与归纳。
+
+## Class Members
+
+在class的声明里，真正有用的两样东西（其实也就只有这两样东西）是data members和member functions：
+
+- Data members表示根据这个class所产生的object（对象）里头会有什么东西，它事实上也是占据object内存空间的唯一物质（除非引入了虚拟机制）。通常为了数据的封装性，我们把data members声明为private或protected。
+- Member functions是用来处理data members的函数。通常，为了接口的开放性，我们把member functions设计为public。
+
+### Data Members （数据成员）
+
+Data members的声明和一般 non-class的变量声明方式一样。以 *CPoint* 为例：
+
+```c++
+#0001 class CPoint {
+#0002 public:
+#0003 	CPoint( float x = 0.0 ) : _x( x ) { }
+#0004
+#0005 	float x() { return _x; }
+#0006 	void x( float xval ) { _x = xval; } 
+#0007 // ...
+#0008 protected:
+#0009 	float _x;  // data member
+#0010 };
+```
+
+L9的 *_x* 就是一个 data members。
+
+如果 data member不是一个一般的变量，而是一个class object，这种情况比较特殊，称为 **composition**（），而这种objects被称为 embedded objects或object member。Composition被用来描述
