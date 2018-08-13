@@ -1000,3 +1000,221 @@ Data members的声明和一般 non-class的变量声明方式一样。以 *CPoin
 L9的 *_x* 就是一个 data members。
 
 如果 data member不是一个一般的变量，而是一个class object，这种情况比较特殊，称为 **composition**（），而这种objects被称为 embedded objects或object member。Composition被用来描述
+
+## Template
+
+什么是template？重要性如何？Kaare Christian 在 1994/01/25 的 ***PC Magazine***上有一篇文章，把template说得生动又有趣，也指出了重点：
+
+> 无性生殖并不只存在于遗传工程，对程序员而言，它也是一个由来已久的操作。过去，我们不过是以一个简单而基本的工具，也就是一个文字编辑器，剪剪贴贴地复制程序代码。今天，C++提供给我们一个更好的反之方法：template。
+>
+> 复制一段既有的程序代码，最平常的一个理由就是：为了改变数据类型。举个例子，假设你写了一个绘图函数，使用类型分别为long的x，y坐标；突然之间你需要相同的算法，但坐标值采用float。你当然可以使用一个文字编辑器把这段代码拷贝一份，然后改变其中的数据类型。你甚至可以使用C++的overloaded functions，那么就可以继续使用相同的函数名称。Function overloading的确使我们有比较清爽的程序代码，但你还是必须在程序的许多地方维护完全相同的算法。
+>
+> C语言对此问题的解决之道是：使用macros。但macros有它自己的缺点，第一，它只适用于简单的功能。第二个缺点比较严重：macros不提供参数类型检验，这与C++严格的类型检验格格不入。第三个缺点是：macros并非functions，程序中任何调用macros的地方都会被编译器的预处理器原原本本地插入macros所定义的那一段代码， 而并非只是一个function call。因此你每使用一次macros，你的执行文件就会膨胀一些。
+>
+> Templates提供比较好的解决方案，它把“一般性的算法”和其“对数据类型的实际依赖”区分开来。你可以先写出算法的程序代码，使用时才填入实际数据类型。C++ template使“数据类型”也以参数的姿态出现。有了template，我们可以拥有macros“只写一次”的有点，以及overloaded functions“类型检验”的优点。
+
+Template的好处其实不仅在于，你可以利用template设计出一般化（泛型）的算法，适用于“目前存在”以及“尚未被设计出来”的某种数据类型（某种class type）。当然，如果让新开发的class type能够适用于比泛型算法，那些classes在设计时也必须配合某些事情。
+
+稍后我就会从我所举的简单例子中看到这种伟大的弹性。
+
+C++ template有两种，一种针对function，另一种针对class。
+
+### Template Functions
+
+假设我需要一个幂次方计算函数，名为 *power()* 。这个函数只接受正幂次方数，如果是负幂次方数，就让结果为0.
+
+对于int数据，*power()* 函数应该是这样：
+
+```c++
+#0001 int power(int base, int exponent)
+#0002 {
+#0003 	int result = base;
+#0004 	if (exponent == 0) return (int)1;
+#0005 	if (exponent < 0) return (int)0;
+#0006 	while (--exponent) result *= base;
+#0007 		return result;
+#0008 }
+```
+
+对于long数据，*power()* 函数应该是这样：
+
+```c++
+#0001 long power(long base, int exponent)
+#0002 {
+#0003 	long result = base;
+#0004 	if (exponent == 0) return (long)1;
+#0005 	if (exponent < 0) return (long)0;
+#0006 	while (--exponent) result *= base;
+#0007 		return result;
+#0008 }
+```
+
+对于float我们因该……对于complex我们又因该……哦，我们为什么不能够把数据类型也变成参数之一，在调用函数时加以指定呢？是的，这就是template的妙用，语法如下：
+
+```c++
+template <class T> T power(T base, int exponent);
+```
+
+写成两行或许比较清楚：
+
+```c++
+template <class T>
+T power(T base, int exponent);
+```
+
+这样的函数声明是以一个特殊的**template**字开始的，后面跟着一个参数列表（本例只有一个参数T）。容易让人迷惑的是其中的**class**字眼，它并不一定代表C++的class，它也可以是一个普通的（内置的）数据类型（当然啦，以退化的角度看，内置类型也是一种class）。<class T>的意思是：T是一种数据类型，次类型将在调用此函数时才由调用者指定。
+
+下面就是 *power()* 的template版本。注意，返回值也必须温和template函数的声明：
+
+```c++
+#0001 template <class T>
+#0002 T power(T base, int exponent)
+#0003 {
+#0004 	T result = base;
+#0005 	if (exponent == 0) return (T)1;
+#0006 	if (exponent < 0) return (T)0;
+#0007 	while (--exponent) result *= base;
+#0008 		return result;
+#0009 }
+```
+
+下面是调用template函数的方法：
+
+```c++
+#0001 #include <iostream.h>
+#0002 void main()
+#0003 {
+#0004 int i = power(5, 4);
+#0005 long l = power(1000L, 3);
+#0006 long double d = power((long double)1e5, 2);
+#0007
+#0008 cout << "i= " << i << endl;
+#0001 #include <iostream.h>
+#0002 void main()
+#0003 {
+#0004 int i = power(5, 4);
+#0005 long l = power(1000L, 3);
+#0006 long double d = power((long double)1e5, 2);
+#0007
+#0008 cout << "i= " << i << endl;
+```
+
+执行结果如下：
+
+```
+i= 625
+l= 1000000000
+d= 1e+010
+```
+
+在第一次调用中我指定T为int，在第二次调用中我指定T为long。而在第三次调用中T又变成了一个long double。这些template function都可以应付。但如果函数调用时调用者自己混淆了数据类型，像这样：
+
+```c++
+int i = power(1000L, 4); // 基值是個 long，傳回值卻是個 int。錯誤！
+```
+
+编译时就会出错。
+
+Template函数的“类型参数”T究竟可以适应多少种类型？我要说，任何内置（build in）类型或用户自定（user defined）类型（也就是class，包括struct）都可以。如果是个class，此一class必须支持 *power()* 函数中对于该类型T的任何运算操作，否则编译器遇到那些运算符时，不知该怎么处理才好。
+
+以 *power()* 为例，它对于类型为T的 *result* 变量和 *base* 变量有以下的运算：
+
+
+
+所有的C++内置类型如int或long都支持上述运算操作。但如果你打算支持某个C++ class，该class必须拥有支持上述运算操作的member functions。
+
+### Template Classes
+
+除了template functions，我们还可以建立template classes，是它们能够神奇地操作任何类型的数据。下面这个例子，*CTree* 内含三个data members，*Min()* 返回其中的最小值，*Max()* 返回其中的最大值：
+
+```c++
+#0001 template <class T>
+#0002 class CThree
+#0003 {
+#0004 public :
+#0005 	CThree(T t1, T t2, T t3);
+#0006 	T Min();
+#0007 	T Max();
+#0008 private:
+#0009 	T a, b, c;
+#0010 };
+```
+
+请你把T看成是熟悉的int或float，语法就不至于稀奇古怪了。以下是上述三个member functions的定义：
+
+```c++
+#0001 template <class T>
+#0002 T CThree<T>::Min()
+#0003 {
+#0004 T minab = a < b ? a : b;
+#0005 return minab < c ? minab : c;
+#0006 }
+#0007
+#0008 template <class T>
+#0009 T CThree<T>::Max()
+#0010 {
+#0011 T maxab = a < b ? b : a;
+#0012 return maxab < c ? c : maxab;
+#0013 }
+#0014
+#0015 template <class T>
+#0016 CThree<T>::CThree(T t1, T t2, T t3) :
+#0017 a(t1), b(t2), c(t3)
+#0018 {
+#0019 return;
+#0020 }
+```
+
+请注意，每一个member function都要在最前面加上 template <class T>，而且
+
+## Standard Template Library （ STL ） or C++ Standard Library
+
+### STL Containers
+
+### STL Generic Algorithm （泛型算法）
+
+### STL Iterators （迭代器）
+
+### 一个完整实例
+
+## MFC Collection Classes
+
+### 认识 MFC
+
+
+
+## Namespace（命名空间）
+
+预设情况下，每一个object、每一个function、每一种type如果声明在global scope（全局，或者称为 global namespace scope）之中，就会拥有它自己的一个所谓的global entity。在同一个程序中，不管是不是位于一份文件，objects 或 functions 或 types的名称是不能够抵触的。这意味着你必须非常小心地不要和你所使用的libraries产生符号命名上的冲突。有些时候你想要小心谨慎也不可得，因为你所使用的libraries可能并没有在其文件中详细说明它的各种命名。这种因命名而造成的冲突在我们大量适应各家厂商制造的各式各样的libraries时尤其带来困扰。这种问题被称为“global name space pollution”。
+
+> 所谓scope：在C++语言中，scope就是以左右大括号{}涵盖起来的空间。objects的生命周期，变量的生命周期，都以scope为依据。你可以在程序中使用{}任意产生scope。
+
+解决命名冲突的方法之一是，我们在自己程序的每一个命名符号之前，加上专属的前置词。于是名称变得又臭又长，在输入和阅读上都形成一种负担。解决方式之二就是使用自定的namespace。语法如下：
+
+```c++
+namespace polymorphism_in_cplusplus
+{
+class CPoint { /* ... */ };
+void printall(CPoint &);
+}
+```
+
+出现在namespace之中的各种元素，包括objects、template、functions、types可以用相同的命名。编译器图和对待它们呢？编译器会把上述的两个namespace members改为全名如下：
+
+1. polymorphism_in_cplusplus::CPoint
+2. polymorphism_in_cplusplus::printall()
+
+继续使用又臭又长的符号命名规则：
+
+```c++
+using namespace std; // std is STL’s namespace
+```
+
+请参考p.78程序代码。
+
+以下我再举个小型实例，示范namespace的其他用法：
+
+```
+
+```
+
